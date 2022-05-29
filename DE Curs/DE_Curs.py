@@ -14,41 +14,41 @@ class DiffEq():
         #self.y0 = 0.8
         #self.xN = 1
         #self.yN = 0.691149
-        self.a = 0
-        self.b = 1
+        self.a = -3
+        self.b = 3
         self.h = 0.05
         self.result = []
 
     def Func(self, x):
         return math.exp(x)
 
-    def f(self, x, y, z):
-        return (math.exp(x) + y + z) / 3
+    def f(self, x, y, dxdy):
+        return (math.exp(x) + y + dxdy) / 3
 
     #def Func(self, x):
     #    return -math.cos(3*x)/5 + math.sin(2*x) + math.cos(2*x)
 
-    #def f(self, x, y, z):
+    #def f(self, x, y, dxdy):
     #    return math.cos(3*x) - 4*y
 
-    def g(self, x, y, z):
-        return z
+    def g(self, x, y, dxdy):
+        return dxdy
 
-    def RK4(self, x, y, z):
-        resultK = z     # y
-        resultQ = y     # y'
+    def RK4(self, x, y, dxdy):
+        resultK = dxdy    
+        resultQ = y     
 
-        k1 = self.h * self.f(x, y, z)
-        q1 = self.h * self.g(x, y, z)
+        k1 = self.h * self.f(x, y, dxdy)
+        q1 = self.h * self.g(x, y, dxdy)
 
-        k2 = self.h * self.f(x + self.h / 2.0, y + q1 / 2.0, z + k1 / 2.0)
-        q2 = self.h * self.g(x + self.h / 2.0, y + q1 / 2.0, z + k1 / 2.0)
+        k2 = self.h * self.f(x + self.h / 2.0, y + q1 / 2.0, dxdy + k1 / 2.0)
+        q2 = self.h * self.g(x + self.h / 2.0, y + q1 / 2.0, dxdy + k1 / 2.0)
 
-        k3 = self.h * self.f(x + self.h / 2.0, y + q2 / 2.0, z + k2 / 2.0)
-        q3 = self.h * self.g(x + self.h / 2.0, y + q2 / 2.0, z + k2 / 2.0)
+        k3 = self.h * self.f(x + self.h / 2.0, y + q2 / 2.0, dxdy + k2 / 2.0)
+        q3 = self.h * self.g(x + self.h / 2.0, y + q2 / 2.0, dxdy + k2 / 2.0)
 
-        k4 = self.h * self.f(x + self.h, y + q3, z + k3)
-        q4 = self.h * self.g(x + self.h, y + q3, z + k3)
+        k4 = self.h * self.f(x + self.h, y + q3, dxdy + k3)
+        q4 = self.h * self.g(x + self.h, y + q3, dxdy + k3)
 
         resultK += (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
         resultQ += (q1 + 2.0 * q2 + 2.0 * q3 + q4) / 6.0
@@ -57,37 +57,44 @@ class DiffEq():
 
     def Resolution(self, Y0):
         self.result.clear()
-        curX = 0
+        curX = self.x0
         y = Y0[0]
-        z = Y0[1]
-        count = 0
+        dxdy = Y0[1]
 
         # Решеник диффура Рунге-Куттом
         while curX < self.xN:
-            result = self.RK4(curX, y, z)
+            result = self.RK4(curX, y, dxdy)
             curX += self.h
-            z = result[0]
+            dxdy = result[0]
             y = result[1]
-            self.result.append([curX, y, z])
+            self.result.append([curX, y, dxdy])
+
+        exodus = []
+        exodus.append(self.result[-1])
+        self.result.clear()
 
         # Двойной пересчет
-        delta = 0
-        while delta > (15 * E):
+        deltaY = 100
+        deltaDxDy = 100
+        while deltaY > (15 * E) or deltaDxDy > (15 * E):
+            curX = self.x0
+            y = Y0[0]
+            dxdy = Y0[1]
             self.h = self.h / 2
             while curX < self.xN:
-                result = self.RK4(curX, y, z)
+                result = self.RK4(curX, y, dxdy)
                 curX += self.h
-                z = result[0]
+                dxdy = result[0]
                 y = result[1]
-                self.result.append([curX, y, z])
-            count += 1
-            delta = self.result[-1][1] - self.result[-2][1]
-
-
-        print("количество итераций = ", count)
+                self.result.append([curX, y, dxdy])
+            exodus.append(self.result[-1])
+            deltaY = abs(exodus[-2][1] - exodus[-1][1])
+            deltaDxDy = abs(exodus[-2][2] - exodus[-1][2])
+            if deltaY > (15 * E) or deltaDxDy > (15 * E):
+                self.result.clear()
 
         self.h = 0.05
-        return [y, z]
+        return [y, dxdy]
 
     def Graph(self, X, Y, descr, figureNum):
         plt.figure(figureNum)
@@ -97,20 +104,21 @@ class DiffEq():
     def Output(self):
         X = []
         Y = []
-        z = []
-        inX = []
+        dxdy = []
+        orig = []
         for i in range(len(self.result)):
             X.append(self.result[i][0])
             Y.append(self.result[i][1])
-            z.append(self.result[i][2])
-            inX.append(self.Func(X[i]))
+            dxdy.append(self.result[i][2])
+            orig.append(self.Func(X[i]))
 
         self.Graph(X, Y, "Y", 0)
-        self.Graph(X, z, "z", 1)
-        self.Graph(X, inX, "Right", 2)
+        self.Graph(X, dxdy, "dxdy", 1)
+        self.Graph(X, orig, "Original", 2)
 
         for i in range(len(self.result)):
             print(self.result[i])
+            print()
 
         plt.show()
 
